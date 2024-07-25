@@ -3,7 +3,6 @@ async function processLinks() {
     const links = linkInput ? linkInput.split('\n') : [];
     const proxyUrl = 'http://localhost:3000/proxy?url=';
     const resolveUrl = 'http://localhost:3000/resolve-url?url=';
-    const checkUrl = 'http://localhost:3000/check-url?url=';
     const assets = new Set();
     const uniqueDocuments = new Set();
 
@@ -18,7 +17,7 @@ async function processLinks() {
 
                     // Handle images and other assets
                     const images = getAllImages(doc, link);
-                    const documents = await getAllDocuments(doc, resolveUrl, checkUrl, link, uniqueDocuments);
+                    const documents = await getAllDocuments(doc, resolveUrl, link, uniqueDocuments);
                     const videos = getAllVideos(doc, link);
                     console.log("VIEOS",videos)
                     images.forEach(src => {
@@ -79,7 +78,7 @@ function getAllImages(doc, parentUrl) {
     return Array.from(images);
 }
 
-async function getAllDocuments(doc, resolveUrl, checkUrl, parentUrl, uniqueDocuments) {
+async function getAllDocuments(doc, resolveUrl, parentUrl, uniqueDocuments) {
     const documents = new Set();
 
     // Add PDFs and Excel files from <a> tags
@@ -89,31 +88,27 @@ async function getAllDocuments(doc, resolveUrl, checkUrl, parentUrl, uniqueDocum
             let resolvedUrl = href;
             if (href.includes('aka.ms')) {
                 try {
-                    const resolveResponse = await fetch(resolveUrl + encodeURIComponent(href));
-                    const resolveData = await resolveResponse.json();
-                    resolvedUrl = resolveData.resolvedUrl;
-
-                    const checkResponse = await fetch(checkUrl + encodeURIComponent(resolvedUrl));
-                    const checkData = await checkResponse.json();
-
-                    if (!checkData.isWebsite) {
+                    const res = await fetch(resolveUrl + encodeURIComponent(href));
+                    const data = await res.json();
+                    resolvedUrl = data.resolvedUrl;
+                    if ((resolvedUrl.startsWith('https://query.prod.cms.rt.microsoft.com/cms/')) || resolvedUrl.match(/\.pdf$/i) || resolvedUrl.match(/\.xlsx?$/i) || resolvedUrl.match(/\.docx$/i)  || resolvedUrl.match(/\.ics$/i) || resolvedUrl.startsWith('https://query.prod.cms.rt.microsoft.com/cms/api/am/binary/') || resolvedUrl.includes('cdn') ){
                         documents.add({ type: 'document', src: href, resolved: resolvedUrl, parentUrl });
                         uniqueDocuments.add(href);
                     }
                 } catch (error) {
-                    console.error('Error resolving or checking URL:', href, error);
+                    console.error('Error resolving URL:', href, error);
                 }
-            } else if (href.match(/\.pdf$/i) || href.match(/\.xlsx?$/i) || href.match(/\.docx$/i) || href.match(/\.ics$/i) || href.startsWith('https://query.prod.cms.rt.microsoft.com/cms/api/am/binary/') || href.includes('cdn') ) {
+            } else if (href.match(/\.pdf$/i) || href.match(/\.xlsx?$/i) || href.match(/\.docx$/i)  || href.match(/\.ics$/i) || href.startsWith('https://query.prod.cms.rt.microsoft.com/cms/api/am/binary/') || href.includes('cdn') ) {
                 documents.add({ type: 'document', src: href, parentUrl });
                 uniqueDocuments.add(href);
             }
         }
     });
+    // console.log(uniqueDocuments)
 
     await Promise.all(promises);
     return Array.from(documents);
 }
-
 
 function getAllVideos(doc, parentUrl) {
     const videos = new Set();
@@ -121,7 +116,7 @@ function getAllVideos(doc, parentUrl) {
     doc.querySelectorAll('a[data-target]').forEach(video => {
         const src = video.dataset.target;
         if (src) {
-            if (!(src.includes('chat'))) {
+            if (! (src.includes('chat'))) {
                 videos.add({ type: 'video', src, parentUrl });
             }
         }

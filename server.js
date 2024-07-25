@@ -28,30 +28,14 @@ app.get('/resolve-url', async (req, res) => {
     }
 
     try {
-        const response = await fetch(url, { method: 'HEAD', redirect: 'follow' });
-        const finalUrl = response.url;
-        res.json({ resolvedUrl: finalUrl });
+        const response = await fetch(url, { redirect: 'manual' });
+        const location = response.headers.get('location');
+        res.json({ resolvedUrl: location || url });
     } catch (error) {
         res.status(500).send('Error resolving the URL');
-    }
-});
-
-app.get('/check-url', async (req, res) => {
-    const url = req.query.url;
-    if (!url) {
-        return res.status(400).send('URL is required');
-    }
-
-    try {
-        const response = await fetch(url, { method: 'HEAD' });
-        const contentType = response.headers.get('content-type');
-        res.json({ isWebsite: contentType && contentType.includes('text/html') });
-    } catch (error) {
-        res.status(500).send('Error checking the URL');
     }
 });
 
 app.listen(port, () => {
     console.log(`Proxy server running at http://localhost:${port}`);
 });
-
