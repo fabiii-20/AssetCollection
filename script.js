@@ -86,11 +86,21 @@ async function getAllDocuments(doc, resolveUrl, parentUrl, uniqueDocuments) {
         const href = a.href;
         if (href) {
             let resolvedUrl = href;
+            console.log(href)
             if (href.includes('aka.ms')) {
                 try {
-                    const res = await fetch(resolveUrl + encodeURIComponent(href));
-                    const data = await res.json();
-                    resolvedUrl = data.resolvedUrl;
+                    let attempt = 1
+                    const maxAttempt = 3;
+                    while (attempt < maxAttempt && !(resolvedUrl.startsWith('https://query.prod.cms.rt.microsoft.com/cms/') || resolvedUrl.match(/\.pdf$/i) || resolvedUrl.match(/\.xlsx?$/i) || resolvedUrl.match(/\.docx$/i)  || resolvedUrl.match(/\.ics$/i) || resolvedUrl.startsWith('https://query.prod.cms.rt.microsoft.com/cms/api/am/binary/') || resolvedUrl.includes('cdn')) ){
+                        console.log(attempt,"ATTEMPT")
+                        const res = await fetch(resolveUrl + encodeURIComponent(resolvedUrl));
+                        const data = await res.json();
+                        console.log("RESOLVED URL",href,resolvedUrl,data.resolvedUrl)
+                        resolvedUrl = data.resolvedUrl;
+                        attempt = attempt+1
+                    }
+                    
+                    
                     if ((resolvedUrl.startsWith('https://query.prod.cms.rt.microsoft.com/cms/')) || resolvedUrl.match(/\.pdf$/i) || resolvedUrl.match(/\.xlsx?$/i) || resolvedUrl.match(/\.docx$/i)  || resolvedUrl.match(/\.ics$/i) || resolvedUrl.startsWith('https://query.prod.cms.rt.microsoft.com/cms/api/am/binary/') || resolvedUrl.includes('cdn') ){
                         documents.add({ type: 'document', src: href, resolved: resolvedUrl, parentUrl });
                         uniqueDocuments.add(href);
@@ -98,7 +108,7 @@ async function getAllDocuments(doc, resolveUrl, parentUrl, uniqueDocuments) {
                 } catch (error) {
                     console.error('Error resolving URL:', href, error);
                 }
-            } else if (href.match(/\.pdf$/i) || href.match(/\.xlsx?$/i) || href.match(/\.docx$/i)  || href.match(/\.ics$/i) || href.startsWith('https://query.prod.cms.rt.microsoft.com/cms/api/am/binary/') || href.includes('cdn') ) {
+            } else if (href.match(/\.pdf$/i) || href.match(/\.xlsx?$/i) || href.match(/\.docx?$/i)  || href.match(/\.ics$/i) || href.startsWith('https://query.prod.cms.rt.microsoft.com/cms/api/am/binary/') || href.includes('cdn') ) {
                 documents.add({ type: 'document', src: href, parentUrl });
                 uniqueDocuments.add(href);
             }
@@ -113,18 +123,37 @@ async function getAllDocuments(doc, resolveUrl, parentUrl, uniqueDocuments) {
 function getAllVideos(doc, parentUrl) {
     const videos = new Set();
 
-    doc.querySelectorAll('a[data-target]').forEach(video => {
-        const src = video.dataset.target;
+    // Handle links containing 'videoplayer'
+    doc.querySelectorAll('a[data-target],a').forEach(video => {
+        const src = video.dataset.target || video.href;
         if (src) {
-            if (! (src.includes('chat'))) {
+            if (src.includes('videoplayer') && !src.includes('chat')) {
                 videos.add({ type: 'video', src, parentUrl });
             }
         }
         console.log(src, video);
     });
 
+    // Handle <video> tags
+    doc.querySelectorAll('video').forEach(video => {
+        console.log('found video', video.src)
+        const src = video.src;
+        if (src) {
+            videos.add({ type: 'video', src, parentUrl });
+        }
+
+        // Handle <source> tags within <video> tags
+        video.querySelectorAll('source').forEach(source => {
+            const sourceSrc = source.src;
+            if (sourceSrc) {
+                videos.add({ type: 'video', src: sourceSrc, parentUrl });
+            }
+        });
+    });
+
     return Array.from(videos);
 }
+
 
 
 function extractImageId(url) {
