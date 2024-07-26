@@ -124,31 +124,31 @@ function getAllVideos(doc, parentUrl) {
     const videos = new Set();
 
     // Handle links containing 'videoplayer'
-    doc.querySelectorAll('a[data-target],a').forEach(video => {
-        const src = video.dataset.target || video.href;
+    doc.querySelectorAll('a[data-target]').forEach(video => {
+        const src = video.dataset.target;
         if (src) {
-            if (src.includes('videoplayer') && !src.includes('chat')) {
+            if (!src.includes('chat')) {
                 videos.add({ type: 'video', src, parentUrl });
             }
         }
         console.log(src, video);
     });
+    doc.querySelectorAll('a[href]').forEach(video => {
+        const src = video.href;
+        if(src){
+            if(src.includes('videoplayer')){
+                videos.add({type: 'video', src, parentUrl })
+            }
+        }
+    });
 
     // Handle <video> tags
-    doc.querySelectorAll('video').forEach(video => {
-        console.log('found video', video.src)
-        const src = video.src;
+    doc.querySelectorAll('video[id]').forEach(video => {
+        console.log('found video', video.id)
+        const src = video.id;
         if (src) {
             videos.add({ type: 'video', src, parentUrl });
         }
-
-        // Handle <source> tags within <video> tags
-        video.querySelectorAll('source').forEach(source => {
-            const sourceSrc = source.src;
-            if (sourceSrc) {
-                videos.add({ type: 'video', src: sourceSrc, parentUrl });
-            }
-        });
     });
 
     return Array.from(videos);
